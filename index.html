@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magical Shooting Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(120deg, #ff9a9e, #fad0c4, #fbc2eb);
+      animation: backgroundAnimation 20s infinite alternate;
+    }
+
+    @keyframes backgroundAnimation {
+      0% { background: linear-gradient(120deg, #ff9a9e, #fad0c4, #fbc2eb); }
+      25% { background: linear-gradient(120deg, #a1c4fd, #c2e9fb, #f9f9f9); }
+      50% { background: linear-gradient(120deg, #fbc2eb, #a18cd1, #fad0c4); }
+      75% { background: linear-gradient(120deg, #fad0c4, #ff9a9e, #fbc2eb); }
+      100% { background: linear-gradient(120deg, #a1c4fd, #ff9a9e, #c2e9fb); }
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #menu, #scoreboard, #gameOver, #achievements {
+      position: absolute;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #menu, #gameOver {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 10;
+    }
+
+    #menu h1, #gameOver h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.7);
+    }
+
+    #menu button, #gameOver button {
+      background-color: #6a11cb;
+      background-image: linear-gradient(315deg, #6a11cb 0%, #2575fc 74%);
+      color: white;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      margin: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    #menu button:hover, #gameOver button:hover {
+      background-image: linear-gradient(315deg, #2575fc 0%, #6a11cb 74%);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    #menu select {
+      margin: 10px 0;
+      padding: 8px 12px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+    }
+
+    #cornerLevel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 14px;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    #scoreboard {
+      top: 10px;
+      left: 10px;
+      font-size: 14px;
+    }
+
+    #achievements {
+      bottom: 10px;
+      left: 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <h1>Welcome to the Magical Shooting Realm!</h1>
+    <label for="startLevel">Select Starting Level:</label>
+    <select id="startLevel">
+      <option value="1">Level 1</option>
+      <option value="2">Level 2</option>
+      <option value="3">Level 3</option>
+      <option value="4">Level 4</option>
+      <option value="5">Level 5</option>
+    </select>
+    <button id="startGameButton">Start Game</button>
+  </div>
+
+  <div id="scoreboard" style="display:none;">Score: 0 | Misses: 0/10</div>
+  <div id="cornerLevel" style="display:none;">Level: 1</div>
+  <div id="achievements" style="display:none;">Achievements: None</div>
+  <div id="gameOver" style="display:none;">
+    <h1>Game Over</h1>
+    <p id="finalScore"></p>
+    <button id="restartButton">Restart Game</button>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const menu = document.getElementById('menu');
+    const scoreboard = document.getElementById('scoreboard');
+    const cornerLevel = document.getElementById('cornerLevel');
+    const achievementsDisplay = document.getElementById('achievements');
+    const startGameButton = document.getElementById('startGameButton');
+    const startLevel = document.getElementById('startLevel');
+    const gameOver = document.getElementById('gameOver');
+    const finalScore = document.getElementById('finalScore');
+    const restartButton = document.getElementById('restartButton');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let score = 0;
+    let level = 1;
+    let misses = 0;
+    let targets = [];
+    let gameRunning = false;
+    const maxMisses = 10;
+
+    const targetImages = [
+      '🍎', '🍊', '🍌', '🍇', '🍉',
+      '🥕', '🥒', '🍆', '🍅', '🥭',
+      '🪐', '✨', '🌈', '⚡', '🎯'
+    ];
+
+    class Target {
+      constructor() {
+        this.radius = 40;
+        this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+        this.y = Math.random() * (canvas.height - this.radius * 2) + this.radius;
+        this.dx = (Math.random() - 0.5) * level * 2;
+        this.dy = (Math.random() - 0.5) * level * 2;
+        this.image = targetImages[Math.floor(Math.random() * targetImages.length)];
+      }
+
+      draw() {
+        ctx.font = `${this.radius}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.image, this.x, this.y);
+      }
+
+      update() {
+        this.x += this.dx;
+        this.y += this.dy;
+
+        if (this.x + this.radius > canvas.width || this.x - this.radius < 0) {
+          this.dx = -this.dx;
+        }
+        if (this.y + this.radius > canvas.height || this.y - this.radius < 0) {
+          this.dy = -this.dy;
+        }
+
+        this.draw();
+      }
+    }
+
+    function startGame() {
+      menu.style.display = 'none';
+      gameOver.style.display = 'none';
+      scoreboard.style.display = 'block';
+      cornerLevel.style.display = 'block';
+      achievementsDisplay.style.display = 'block';
+
+      score = 0;
+      level = parseInt(startLevel.value);
+      misses = 0;
+      targets = Array.from({ length: 5 + level }, () => new Target());
+      gameRunning = true;
+      animate();
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      targets.forEach((target) => target.update());
+      scoreboard.textContent = `Score: ${score} | Misses: ${misses}/${maxMisses}`;
+      cornerLevel.textContent = `Level: ${level}`;
+
+      if (misses >= maxMisses) {
+        endGame();
+        return;
+      }
+
+      if (gameRunning) requestAnimationFrame(animate);
+    }
+
+    function endGame() {
+      gameRunning = false;
+      gameOver.style.display = 'flex';
+      finalScore.textContent = `Your Score: ${score}`;
+      scoreboard.style.display = 'none';
+      cornerLevel.style.display = 'none';
+      achievementsDisplay.style.display = 'none';
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (!gameRunning) return;
+
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      let hit = false;
+
+      targets.forEach((target, index) => {
+        const distance = Math.hypot(mouseX - target.x, mouseY - target.y);
+        if (distance < target.radius) {
+          targets.splice(index, 1);
+          score += 10;
+          hit = true;
+        }
+      });
+
+      if (!hit) {
+        misses++;
+      }
+
+      if (targets.length === 0) {
+        level++;
+        targets = Array.from({ length: 5 + level }, () => new Target());
+      }
+    });
+
+    startGameButton.addEventListener('click', startGame);
+    restartButton.addEventListener('click', startGame);
+  </script>
+</body>
+</html>
